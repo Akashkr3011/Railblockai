@@ -1,0 +1,45 @@
+# ==============================================================
+# RAILBLOCK AI — Backend Python Dependencies
+# Python >= 3.11 required
+# ==============================================================
+
+# ---- Web Framework ------------------------------------------------
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+python-multipart==0.0.20          # form data / file uploads
+
+# ---- Data Validation & Settings ----------------------------------
+pydantic==2.10.3
+pydantic-settings==2.6.1
+python-dotenv==1.0.1
+
+# ---- Database (Async) --------------------------------------------
+sqlalchemy==2.0.36
+asyncpg==0.30.0                   # async PostgreSQL driver
+greenlet==3.1.1                   # required by SQLAlchemy async
+
+# ---- Database (Sync — Alembic migrations) -----------------------
+psycopg2-binary==2.9.10           # sync driver for Alembic
+alembic==1.14.0
+
+# ---- Security / Authentication -----------------------------------
+python-jose[cryptography]==3.3.0  # JWT
+passlib[bcrypt]==1.7.4            # password hashing
+bcrypt==4.0.1                     # pinned: passlib 1.7.4 compatible with bcrypt 4.0.x
+
+# ---- HTTP Client -------------------------------------------------
+httpx==0.28.1                     # async HTTP client
+
+# ---- Utilities ---------------------------------------------------
+python-dateutil==2.9.0.post0
+pytz==2024.2
+
+# ---- Logging -----------------------------------------------------
+structlog==24.4.0
+
+# ---- Testing (dev only) ------------------------------------------
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-cov==6.0.0
+httpx==0.28.1                     # test client for FastAPI
+factory-boy==3.3.1

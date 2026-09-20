@@ -117,6 +117,26 @@ export const OFFICIAL_DEMO_ACCOUNTS: Record<UserRole, {
       'VIEW_WORK_INSTRUCTIONS',
     ],
   },
+  VIEWER: {
+    id: 'usr-viewer',
+    username: 'viewer',
+    email: 'viewer@railnet.gov.in',
+    password: 'RailNet@2026',
+    name: 'Shri V. Verma [Audit]',
+    full_name: 'Shri V. Verma [Audit]',
+    role: 'VIEWER',
+    department: 'Safety & Audit Directorate',
+    designation: 'Railway Safety Auditor',
+    division: 'CR-MUM (Mumbai Division)',
+    clearance: 'Read-Only Audit & Monitoring Access',
+    permissions: [
+      'VIEW_ALL_DASHBOARDS',
+      'VIEW_PERMITTED_DASHBOARDS',
+      'VIEW_OPERATIONAL_DATA',
+      'VIEW_PLAN_STATUS',
+      'AUDIT_LOGS',
+    ],
+  },
 }
 
 // Backward compatibility alias

@@ -1,0 +1,61 @@
+
+FEATURE:
+Stage 3C.2 — Optimization Objectives + Solution Validator
+
+STATUS:
+Implemented
+
+IMPLEMENTATION:
+- Integrated PriorityEngine to provide dynamic scores for objective function.
+- Expanded OptimizationService objective to use a weighted configurable model (asset downtime penalty, block utilization penalty, overdue bonus).
+- Created independent SolutionValidator separating CP-SAT status from rigid operational domain validation (validates block bounds, duration, asset overlap, train overlap, deadline).
+
+FILES/MODULES:
+- app/services/optimization/solver.py
+- app/services/optimization/validator.py
+- app/schemas/optimization.py
+- tests/test_optimization_objectives.py
+- tests/test_solution_validator.py
+- docs/optimization.md
+
+WHY:
+CP-SAT solver needs realistic weighted objectives matching operational realities, rather than blind scheduling count. Planners cannot trust raw solver output; requires independent validation proving constraints were met in the final scheduled state.
+
+API/DB IMPACT:
+None directly; schema expansion only for ValidationIssue/ValidationResult.
+
+TEST STATUS:
+131/131 tests passing. Includes mocking workaround for known Python 3.13 OR-Tools bug.
+
+FEATURE:
+Stage 3C.3 — Baseline + Comparison + Explanation
+
+STATUS:
+Implemented
+
+IMPLEMENTATION:
+- Implemented BaselineScheduler prioritizing tasks by score and sequentially finding first available slots.
+- Implemented ComparisonService that extracts tasks scheduled, active blocks, downtime, etc., and calculates absolute/percentage differences vs. CP-SAT.
+- Created ExplanationEngine parsing task outcomes against PriorityEngine and constraint boundaries to yield a structured 'Why' payload.
+- Implemented ManualValidationService testing user-proposed moves through the strict SolutionValidator pipeline.
+- Exposed these services securely under /api/v1/optimization.
+
+FILES/MODULES:
+- app/schemas/optimization.py
+- app/services/optimization/baseline.py
+- app/services/optimization/comparison.py
+- app/services/optimization/explanation.py
+- app/services/optimization/manual_validation.py
+- app/api/v1/optimization.py
+- app/api/v1/__init__.py
+- tests/test_baseline.py
+- tests/test_comparison.py
+- tests/test_explanation.py
+- tests/test_manual_validation.py
+- docs/optimization.md
+
+WHY:
+AI planning needs explainability and benchmark validation to prove value over a standard chronological/priority rule-based dispatcher.
+
+TEST STATUS:
+139/139 backend tests passing.

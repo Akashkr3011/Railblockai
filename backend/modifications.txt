@@ -1,0 +1,22 @@
+
+MODIFICATION: Added Stage 3C.2 Objective Function and Validator
+FILES:
+- app/services/optimization/solver.py
+- app/services/optimization/validator.py (new)
+- app/schemas/optimization.py
+- tests/test_optimization_objectives.py (new)
+- tests/test_solution_validator.py (new)
+- docs/optimization.md
+DETAILS: Weighted objectives for Priority, Downtime, Unused Blocks, Overdue bounds. Created SolutionValidator to check resulting plan against domain rules unconditionally.
+
+MODIFICATION: Added Baseline, Comparison, Explanation and Validation APIs
+FILES:
+- app/schemas/optimization.py
+- app/services/optimization/baseline.py (new)
+- app/services/optimization/comparison.py (new)
+- app/services/optimization/explanation.py (new)
+- app/services/optimization/manual_validation.py (new)
+- app/api/v1/optimization.py (new)
+- app/api/v1/__init__.py
+- tests/test_*.py
+DETAILS: Established benchmark metrics, baseline rule engine, text-based explanation generation, manual schedule mutation validation, and exposed via FastAPI router.

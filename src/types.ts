@@ -103,7 +103,7 @@ export interface MaintenanceRequest {
   corridor?: string
 }
 
-export type UserRole = 'ADMIN' | 'PLANNER' | 'WORKER'
+export type UserRole = 'ADMIN' | 'PLANNER' | 'WORKER' | 'VIEWER'
 
 export interface UserProfile {
   id: string
