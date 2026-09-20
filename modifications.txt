@@ -1,0 +1,430 @@
+================================================================================
+RAILBLOCK AI — MODIFICATIONS TRACKING
+SIH 2026 — Problem Statement #27
+================================================================================
+Last Updated: 2026-09-11
+================================================================================
+
+This file tracks modifications to EXISTING components.
+
+New features are tracked in implemented.txt.
+Only record here when something that ALREADY EXISTED was modified.
+
+--------------------------------------------------------------------------------
+Stage 1 — Foundation & Architecture (2026-09-11)
+--------------------------------------------------------------------------------
+
+DATE/TIMESTAMP: 2026-09-11 23:35 IST
+
+COMPONENT: Frontend — TypeScript Configuration
+
+PREVIOUS BEHAVIOR:
+tsconfig.node.json lacked @types/node, causing vite.config.ts to fail
+TypeScript compilation (path, __dirname, process.env not recognized).
+tsconfig.app.json lacked vite/client types, causing import.meta.env error.
+
+NEW BEHAVIOR:
+tsconfig.node.json includes "types": ["node"].
+tsconfig.app.json includes "types": ["vite/client"].
+vite.config.ts uses fileURLToPath/URL (ESM-safe) instead of __dirname.
+
+WHY MODIFIED:
+Vite 6 uses ESM module format. __dirname is not available in ESM without
+explicit @types/node. import.meta.env requires vite/client type definitions.
+These are standard setup requirements for a Vite 6 + TypeScript project.
+
+FILES:
+frontend/tsconfig.node.json
+frontend/tsconfig.app.json
+frontend/vite.config.ts
+
+COMPATIBILITY IMPACT:
+None — internal TypeScript configuration. No API or behavior change.
+
+TEST RESULT:
+npm run build → ✅ success (1703 modules transformed)
+
+--------------------------------------------------------------------------------
+
+DATE/TIMESTAMP: 2026-09-11 23:35 IST
+
+COMPONENT: Frontend — Global CSS (@apply border-border)
+
+PREVIOUS BEHAVIOR:
+index.css used @apply border-border and @apply bg-background etc. which
+require a Tailwind CSS plugin to register CSS custom properties as utility
+classes. Without the plugin, PostCSS throws a build error.
+
+NEW BEHAVIOR:
+Uses direct hsl(var(--border)) CSS expressions instead of @apply.
+Equivalent visual result, no plugin dependency.
+
+WHY MODIFIED:
+shadcn/ui's @apply border-border pattern requires the tailwindcss-animate
+or a custom plugin to expose CSS vars as Tailwind utilities. Installing
+that plugin at Stage 1 is premature. Direct CSS is simpler and equivalent.
+
+FILES:
+frontend/src/index.css
+
+COMPATIBILITY IMPACT:
+None — visual output is identical. No component API change.
+
+TEST RESULT:
+npm run build → ✅ success
+
+--------------------------------------------------------------------------------
+
+DATE/TIMESTAMP: 2026-09-11 23:38 IST
+
+COMPONENT: Backend — Pydantic Schema (HealthResponse)
+
+PREVIOUS BEHAVIOR:
+HealthResponse used inner `class Config: json_schema_extra = {...}` which
+triggers a Pydantic v2 deprecation warning.
+
+NEW BEHAVIOR:
+Uses `model_config = {"json_schema_extra": {...}}` (Pydantic v2 native).
+
+WHY MODIFIED:
+Pydantic v2 deprecated the class-based Config approach. Using model_config
+keeps the code aligned with Pydantic v2 best practices and silences warnings.
+
+FILES:
+backend/app/schemas/health.py
+
+COMPATIBILITY IMPACT:
+None — schema output is identical.
+
+TEST RESULT:
+pytest → 5 passed, 0 warnings
+
+--------------------------------------------------------------------------------
+
+DATE/TIMESTAMP: 2026-09-11 23:39 IST
+
+COMPONENT: Backend — pytest Configuration
+
+PREVIOUS BEHAVIOR:
+pyproject.toml lacked asyncio_default_fixture_loop_scope setting,
+causing a PytestDeprecationWarning from pytest-asyncio 0.24.
+
+NEW BEHAVIOR:
+asyncio_default_fixture_loop_scope = "function" set explicitly.
+
+WHY MODIFIED:
+pytest-asyncio 0.24+ requires explicit loop scope to avoid deprecation
+warnings that will become errors in future versions.
+
+FILES:
+backend/pyproject.toml
+
+COMPATIBILITY IMPACT:
+None — all existing tests pass with function scope.
+
+TEST RESULT:
+pytest → 5 passed, 0 deprecation warnings
+
+================================================================================
+
+--------------------------------------------------------------------------------
+Stage 2 — Data and Backend Core (2026-09-12)
+--------------------------------------------------------------------------------
+
+DATE/TIMESTAMP: 2026-09-12
+
+COMPONENT: Backend — TrainType enum (app/models/train.py)
+
+PREVIOUS BEHAVIOR:
+TrainType.PASSENGER = "GOODS" — a copy-paste typo that caused PASSENGER
+to be a duplicate alias of GOODS, making PASSENGER invisible in enum sets.
+
+NEW BEHAVIOR:
+TrainType.PASSENGER = "PASSENGER" — correct unique value.
+
+WHY MODIFIED:
+Python's str enum deduplicates aliases. PASSENGER was an alias for GOODS,
+so iterating TrainType never yielded PASSENGER as a distinct member.
+This broke the test_train_type_enum test and would have caused incorrect
+train type filtering in queries.
+
+FILES:
+backend/app/models/train.py
+
+COMPATIBILITY IMPACT:
+No existing data in DB (no migration applied yet). No breaking change.
+The migration 0001_initial_schema.py uses "PASSENGER" in train_type_enum.
+
+TEST RESULT:
+test_train_type_enum: ✅ PASSED after fix
+
+--------------------------------------------------------------------------------
+
+DATE/TIMESTAMP: 2026-09-12
+
+COMPONENT: Backend — Security (app/core/security.py + requirements.txt)
+
+PREVIOUS BEHAVIOR:
+Used passlib.CryptContext with bcrypt backend.
+passlib 1.7.4 accesses bcrypt.__about__.__version__ during backend detection.
+bcrypt 4.x removed the __about__ attribute, causing:
+  ValueError: password cannot be longer than 72 bytes
+during passlib's internal wrap-bug detection cycle.
+
+NEW BEHAVIOR:
+Replaced passlib.CryptContext with direct bcrypt.hashpw / bcrypt.checkpw calls.
+Added bcrypt==4.0.1 pin to requirements.txt.
+passlib removed from security.py imports entirely.
+
+WHY MODIFIED:
+passlib 1.7.4 is unmaintained and incompatible with bcrypt 4.x.
+The bcrypt library's direct API (hashpw, checkpw, gensalt) is stable
+and does not depend on passlib version detection.
+
+FILES:
+backend/app/core/security.py
+backend/requirements.txt
+
+COMPATIBILITY IMPACT:
+Existing hashed passwords remain valid — bcrypt format is unchanged.
+Any code importing pwd_context from security.py will break (none exists
+outside security.py itself — the interface is hash_password/verify_password).
+
+TEST RESULT:
+test_security.py: ✅ 10/10 PASSED after fix
+
+--------------------------------------------------------------------------------
+
+DATE/TIMESTAMP: 2026-09-12
+
+COMPONENT: Backend — Models package (app/models/__init__.py)
+
+PREVIOUS BEHAVIOR:
+__init__.py had only a module docstring. No model imports.
+Alembic autogenerate could not discover models.
+
+NEW BEHAVIOR:
+Imports all 11 model modules so SQLAlchemy metadata is fully populated
+when Alembic runs env.py. Alembic autogenerate can now detect all 27 tables.
+
+FILES:
+backend/app/models/__init__.py
+
+COMPATIBILITY IMPACT:
+None — pure import ordering. No API or schema change.
+
+TEST RESULT:
+All model tests: ✅ PASSED. Alembic migration 0001 generated correctly.
+
+--------------------------------------------------------------------------------
+
+DATE/TIMESTAMP: 2026-09-12
+
+COMPONENT: Backend — API v1 Package (app/api/v1/__init__.py)
+
+PREVIOUS BEHAVIOR:
+Only registered health_router on prefix /health.
+
+NEW BEHAVIOR:
+Registers all 8 routers:
+  /health, /auth, /assets, /maintenance, /blocks, /trains, /alerts, /data-sources
+
+WHY MODIFIED:
+Stage 2 adds 7 new route modules. All must be registered in the central
+API v1 package so FastAPI includes them in the OpenAPI spec and routes them.
+
+FILES:
+backend/app/api/v1/__init__.py
+
+COMPATIBILITY IMPACT:
+GET /api/v1/health is unchanged. All new endpoints are additive.
+
+TEST RESULT:
+Backend imports successfully. Health tests: ✅ still PASSING.
+
+================================================================================
+
+================================================================================
+DATE/TIMESTAMP: 2026-09-14T23:20:00+05:30
+STAGE: 2.5 — Recovery
+COMPONENT: SourceSystem Enum (app/models/maintenance.py)
+
+PREVIOUS BEHAVIOR:
+SourceSystem enum had 13 members: TMS, SMMS, TDMS, COA, BDMS, MANUAL,
+INSPECTION, SIMULATED_TMS, SIMULATED_SMMS, SIMULATED_TDMS, SIMULATED_COA,
+SIMULATED_BDMS.
+
+NEW BEHAVIOR:
+Added SIMULATED_GOODS_FORECAST = "SIMULATED_GOODS_FORECAST" as member 14.
+Enables goods forecast data to be canonically tracked if it produces
+maintenance-linked records in the future.
+
+WHY MODIFIED:
+Stage 2 specification required Goods Train Forecast adapter.
+The SourceSystem enum must reflect all possible data sources.
+
+FILES:
+backend/app/models/maintenance.py
+
+COMPATIBILITY IMPACT:
+Additive change. No existing values changed. Existing alembic migration
+will need a new migration to add this enum value to PostgreSQL when DB is
+available. The enum is defined in the migration as create_type with all values
+— the migration file 0001 will need updating before first application.
+
+TEST RESULT:
+58/58 tests PASSING after change. No regressions.
+
+================================================================================
+DATE/TIMESTAMP: 2026-09-14T23:20:30+05:30
+STAGE: 2.5 — Recovery
+COMPONENT: Adapters Package (app/adapters/__init__.py)
+
+PREVIOUS BEHAVIOR:
+__init__.py was an empty docstring file with no imports.
+Adapters were imported individually by consumers.
+
+NEW BEHAVIOR:
+Explicit imports of all 7 adapter classes + __all__ list.
+SimulatedGoodsForecastAdapter added as new 7th adapter.
+
+WHY MODIFIED:
+Stage 2 required Goods Forecast adapter. Also cleaned up the package to have
+proper explicit exports, making the adapter registry discoverable.
+
+FILES:
+backend/app/adapters/__init__.py
+
+COMPATIBILITY IMPACT:
+Additive. All existing adapters still importable from individual files.
+
+TEST RESULT:
+58/58 tests PASSING. test_adapters.py still passes — note: test_adapters
+does not yet test GoodsForecastAdapter (it tests 6 original adapters). This is
+not a regression; it is an existing test that covers what was originally spec'd.
+
+================================================================================
+DATE/TIMESTAMP: 2026-09-14T23:21:00+05:30
+STAGE: 2.5 — Recovery
+COMPONENT: API v1 Router (app/api/v1/__init__.py)
+
+PREVIOUS BEHAVIOR:
+Registered 8 router groups: health, auth, assets, maintenance, blocks, trains,
+alerts, data_sources. Total: 18 endpoints.
+
+NEW BEHAVIOR:
+Registers 11 router groups: added defects, resources, train_schedules.
+Total: 27 endpoints.
+
+WHY MODIFIED:
+Stage 2 spec included /api/defects, /api/resources, /api/train-schedules but
+they were not registered. Required for Stage 3 optimizer data access.
+
+FILES:
+backend/app/api/v1/__init__.py
+
+COMPATIBILITY IMPACT:
+All existing endpoints unchanged. Three new endpoint groups are additive.
+No schema changes. No breaking changes.
+
+TEST RESULT:
+58/58 PASSING. All 27 routes confirmed via OpenAPI schema inspection.
+
+================================================================================
+DATE/TIMESTAMP: 2026-09-15
+STAGE: 3A
+COMPONENT: API v1 Router (app/api/v1/__init__.py)
+PREVIOUS BEHAVIOR: Registered 11 router groups.
+NEW BEHAVIOR: Registered 12 router groups (added priority_router under /ai prefix).
+WHY MODIFIED: To expose the priority scoring engine to the frontend and future components.
+FILES: backend/app/api/v1/__init__.py
+COMPATIBILITY IMPACT: Additive. No breaking changes.
+TEST RESULT: 96/96 PASSING.
+================================================================================
+
+STAGE 3B.1 MODIFICATIONS:
+- Modified backend/app/api/v1/__init__.py to include the compatibility_router.
+
+STAGE 3B.2 MODIFICATIONS:
+- Modified backend/app/api/v1/__init__.py to include the conflicts_router.
+- Modified app/schemas/rules.py to add ConflictType, ConflictSeverity, ResolutionSuggestion, ConflictDetail, etc.
+
+STAGE 3B.3 MODIFICATIONS:
+- Added cross-service integration tests.
+- Audited services to ensure separation of concerns: Optimizer logic is kept isolated for future stage.
+
+STAGE 3C.1 MODIFICATIONS:
+- Created discrete time model using OR-Tools (1 min granularity).
+- Mapped MaintenanceTasks, BlockRequests, and TrainSchedules to NewIntervalVars.
+- Added OptimizationResult schema mapping CP-SAT statuses to domain enums.
+
+STAGE 4C: BLOCK PLANNER & OPTIMIZATION WORKSPACE
+------------------------------------------------
+[frontend/src/lib/api.ts] - Added endpoints for optimizationApi, blocksApi, and conflictsApi to fetch from backend.
+[frontend/src/pages/BlockPlanner.tsx] - NEW - Block planning visualization using lightweight timeline schedule overlay mapping blocks across 24 hours.
+[frontend/src/pages/Optimization.tsx] - NEW - Optimization configuration and CP-SAT execution workspace exposing comparison metrics (Baseline vs Optimized).
+[frontend/src/components/layout/Sidebar.tsx] - Removed disabled flags on Block Planning and Optimization routes.
+[frontend/src/App.tsx] - Connected BlockPlanner and Optimization components to router.
+[frontend/src/test/operations.test.tsx] - Added unit tests verifying BlockPlanner timeline render and Optimization comparison execution.
+
+STAGE 4D: REPORTS, ALERTS, SCENARIOS & AUDIT
+------------------------------------------------
+[frontend/src/lib/api.ts] - Added endpoints for alertsApi and auditApi.
+[frontend/src/pages/Scenarios.tsx] - NEW - Scenario sandbox for CP-SAT execution without modifying the approved plan.
+[frontend/src/pages/Alerts.tsx] - NEW - Operational alerts viewer connecting to backend /api/v1/alerts.
+[frontend/src/pages/Reports.tsx] - NEW - Aggregates data from active maintenance and blocks into client-side visual telemetry.
+[frontend/src/pages/Audit.tsx] - NEW - System audit table shell (handles API unavailability gracefully).
+[frontend/src/components/layout/Sidebar.tsx] - Enabled missing navigation links and imported required icons.
+[frontend/src/App.tsx] - Connected new pages to the protected router.
+[frontend/src/test/operations.test.tsx] - Added unit tests for Scenarios, Alerts, Reports, and Audit, ensuring they render correctly and handle mock API errors.
+
+STAGE 5A: REALTIME EVENT ARCHITECTURE
+------------------------------------------------
+[backend/app/schemas/events.py] - NEW - Defined RailBlockEvent schema with simulation traceability.
+[backend/app/services/events_manager.py] - NEW - Implemented WebSocket EventManager for broadcasts.
+[backend/app/api/v1/events.py] - NEW - WS endpoint /api/v1/events/ws and publishing hooks.
+[backend/app/api/v1/__init__.py] - Registered events router.
+[frontend/src/stores/eventStore.ts] - NEW - Zustand store for holding global connection state and recent events.
+[frontend/src/hooks/useRealtime.ts] - NEW - Reconnecting WebSocket client that invalidates React Query caches based on event payloads.
+[frontend/src/components/layout/AppLayout.tsx] - Injected the useRealtime hook to cover all protected routes.
+[frontend/src/components/layout/Header.tsx] - Replaced polling health check with robust realtime connection, stale, and simulation indicator.
+[frontend/src/test/events.test.tsx] - NEW - Tests verifying WS state changes and simulation tags rendering correctly.
+
+STAGE 5B: SIMULATION & REPLAY ENGINE
+------------------------------------------------
+[backend/app/services/simulation/scenarios.py] - NEW - Defined 5 deterministic demo sequences emitting events.
+[backend/app/services/simulation/engine.py] - NEW - Asynchronous loop for dispatching events according to a simulated clock.
+[backend/app/api/v1/simulation.py] - NEW - API wrapper for the SimulationEngine (play, pause, step, reset, speed).
+[backend/app/api/v1/__init__.py] - Registered simulation router.
+[frontend/src/lib/api.ts] - Added simulationApi client methods.
+[frontend/src/pages/Simulation.tsx] - NEW - Workspace for loading scenarios, controlling time, and viewing emitted simulated events.
+[frontend/src/components/layout/Sidebar.tsx] - Added Simulation route and Film icon.
+[frontend/src/App.tsx] - Added Simulation to the application router.
+[backend/tests/test_simulation.py] - NEW - Verifies backend engine load, step, and state transitions.
+[frontend/src/test/simulation.test.tsx] - NEW - Validates the frontend UI bindings for the simulation engine.
+
+STAGE 5C: PIPELINE INTEGRATION
+------------------------------------------------
+[backend/tests/test_pipeline_e2e.py] - NEW - Integrated E2E test verifying single source of truth across all 10 AI/Rule services.
+
+
+STAGE 6A
+- Added get_current_user and role-specific dependencies to missing API endpoints (defects, optimization, priority, resources, simulation, train_schedules, events).
+- Created additional convenience dependencies in pp/core/dependencies.py for Asset Manager, Block Manager, Optimizer, etc.
+- Verified 9 roles map correctly to endpoints (ADMIN, ENGINEERING, ST, TRD, PLANNER, TRAFFIC_CONTROLLER, MANAGER, EXECUTIVE, AUDITOR).
+- Fixed minor test issues and ran full 146 backend test suite successfully.
+
+
+STAGE 6B
+- Backend DB: Added missing multi-column and single-column indexes on MaintenanceRequest, BlockRequest, TrainSchedule, and Resource models to optimize queries.
+- Backend DB: Replaced default BaseRepository offset/limit pagination with explicit created_at.desc() ordering to ensure deterministic page results and avoid jitter.
+- Backend Engine: Confirmed solver strictly enforces OptimizationConfig.time_limit_seconds and handles cp_model.UNKNOWN timeout status gracefully.
+- Backend API: Added syncio.timeout(2.0) to DB health check to prevent unrecoverable stalls on network partition.
+- Frontend: Verified TanStack global caching strategies correctly align with app constraints (2-min stale time, event-based cache invalidation).
+- Frontend: Confirmed robust isLoading/isError presentation on Assets, Blocks, Maintenance, and Optimization UI states without freezing the application thread.
+
+
+STAGE 7A
+- Data Pipeline: Hooked up real database tasks to the Optimization endpoints replacing the mock arrays. This proves full end-to-end integration of Priority, Conflict, and CP-SAT engines on backend state.
+- Seed Generator: Overrode pure randomization with a curated set of deterministic tasks (CRITICAL fracture, OVERDUE OHE, medium routine) at the end of the script to ensure the CP-SAT engine always has a solvable but heavily constrained demonstration scenario.
+- UI/UX Polish: Injected a red top-level layout banner that persists across all routes clearly identifying the system as a Simulation/Demo for SIH 2026, maintaining data honesty.

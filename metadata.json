@@ -1,0 +1,8 @@
+{
+  "name": "RailBlock AI — Indian Railways Maintenance Block Planning System",
+  "description": "AI-powered automatic block planning and decision-support system to maximize asset availability for train operations across all 17 zones and national corridors of Indian Railways (SIH 2026 Problem Statement SIH26027).",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
